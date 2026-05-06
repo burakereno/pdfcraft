@@ -23,19 +23,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check Cloudflare API token
+        id: cloudflare-token
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN secret is not set; skipping Cloudflare Pages deployment."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
       - name: Setup Node.js
+        if: steps.cloudflare-token.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
 
       - name: Install dependencies
+        if: steps.cloudflare-token.outputs.enabled == 'true'
         run: npm ci
 
       - name: Build static export
+        if: steps.cloudflare-token.outputs.enabled == 'true'
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
+        if: steps.cloudflare-token.outputs.enabled == 'true'
         run: npx wrangler@latest pages deploy out --project-name pdfcraft --branch main --commit-hash "$GITHUB_SHA"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
